@@ -40,7 +40,9 @@ namespace SOUI
 		
 		HRESULT SetCurTab(UINT uCurTab);
 		HRESULT DeleteCurTab(UINT uDelTab);
-		HRESULT AddTab();
+		HRESULT AddTab(UINT uNewTab);
+		HRESULT _CreateNewTab(UINT uNewTab);
+		
 
         wkeWebView	GetWebView(){return m_mapWebView[m_uCurTab];}
     protected:
@@ -86,7 +88,6 @@ namespace SOUI
 
     protected:
 		UINT m_uCurTab;
-		UINT m_uTabNum;
 		std::map<UINT, wkeWebView> m_mapWebView;
         SStringW m_strUrl;
     };

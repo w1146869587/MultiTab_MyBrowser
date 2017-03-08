@@ -56,14 +56,12 @@ namespace SOUI
     {
 		m_uCurTab = 0;
 		m_mapWebView.clear();
-		m_uTabNum = m_mapWebView.size();
     }
 
     SWkeWebkit::~SWkeWebkit(void)
     {
 		m_uCurTab = 0;
 		m_mapWebView.clear();
-		m_uTabNum = m_mapWebView.size();
     }
 
     void SWkeWebkit::OnPaint(IRenderTarget *pRT)
@@ -95,16 +93,9 @@ namespace SOUI
 
     int SWkeWebkit::OnCreate( void * )
     {
-		wkeWebView webView;
-		webView = SWkeLoader::GetInstance()->m_funWkeCreateWebView();
-        if(!webView) return 1;
-		webView->setBufHandler(this);
-		webView->loadURL(m_strUrl);
-		m_mapWebView[m_uTabNum + 1] = webView;
-		++m_uTabNum;
-		m_uCurTab = m_uTabNum;
-        SetTimer(TM_TICKER,50); //由于timer不够及时，idle又限制了只在当前的消息循环中有效，使用timer和onidle一起更新浏览器
-        return 0;
+		// 初始化创建标签标记为0的标签页
+		_CreateNewTab(0);
+		return 0;
 	}
 
 	void SWkeWebkit::OnDestroy()
@@ -268,7 +259,10 @@ namespace SOUI
 	{
 		if(cTimerID==TM_TICKER)
 		{
-			m_mapWebView[m_uCurTab]->tick();
+			// 当m_uCurTab为0的时候，意味着当前已经不存在标签页了
+			if (0 != m_uCurTab) {
+				m_mapWebView[m_uCurTab]->tick();
+			}
 		}
 	}
 
@@ -307,42 +301,48 @@ namespace SOUI
 
 	HRESULT SWkeWebkit::DeleteCurTab(UINT uDelTab)
 	{
-		// TODO:摧毁标签页对应的wke对象
-		// TODO:清理map中此wke对象的键值对
-		
-		//// 删除wke对象
-		//OnDestroy();
-		//// 清除map记录
-		//m_mapWebView.erase(1);
-		//--m_uTabNum;
-		//// 选择最大标签值显示
-		//if (m_uTabNum == 0) {
-		//	m_uCurTab = 0;
-		//} else {
-		//	m_uCurTab = m_mapWebView.end()->first;
-		//}
-
-		// 不摧毁标签页对应的wke对象
-		// 不清理map中此wke对象的键值对
-		// 选择最大标签值显示
+		// 删除wke对象
+	 	if (m_mapWebView[uDelTab]) SWkeLoader::GetInstance()->m_funWkeDestroyWebView(m_mapWebView[uDelTab]);
+		// 清除map记录
+		m_mapWebView.erase(uDelTab);
+		// 按照first值从0开始排序，修改first值的排列为自然数顺序
+		UINT index = 0;
+		std::map<UINT, wkeWebView> mapWebView;
+		for (auto it = m_mapWebView.begin(); it != m_mapWebView.end(); ++it) {
+			mapWebView.insert(std::make_pair(index++, it->second));
+		}
+		m_mapWebView.clear();
+		m_mapWebView = mapWebView;
+		mapWebView.clear();
+		// 设置当前的标签页为最后添加的标签
+		if (m_mapWebView.size() > 0) {
+			m_uCurTab = m_mapWebView.crbegin()->first;
+		}
+		// 如果是最后一个标签页被关闭，关闭进程
+		else {
+			PostMessage(GetActiveWindow(), WM_CLOSE, NULL, NULL);
+		}
 
 		return S_OK;
 	}
 
-	HRESULT SWkeWebkit::AddTab()
+	HRESULT SWkeWebkit::AddTab(UINT uNewTab)
+	{
+		_CreateNewTab(uNewTab);
+		return S_OK;
+	}
+
+	HRESULT SWkeWebkit::_CreateNewTab(UINT uNewTab)
 	{
 		wkeWebView webView;
 		webView = SWkeLoader::GetInstance()->m_funWkeCreateWebView();
 		if (!webView) return 1;
 		webView->setBufHandler(this);
 		webView->loadURL(m_strUrl);
-		m_mapWebView[m_uTabNum + 1] = webView;
-		++m_uTabNum;
-		m_uCurTab = m_uTabNum;
+		m_mapWebView[uNewTab] = webView;
+		m_uCurTab = uNewTab;
 		SetTimer(TM_TICKER, 50); //由于timer不够及时，idle又限制了只在当前的消息循环中有效，使用timer和onidle一起更新浏览器
 		return S_OK;
 	}
-
-
 }
 
